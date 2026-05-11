@@ -13,6 +13,14 @@ const categoryColors = {
   parking: '#64748b', ev_charging: '#10b981', pharmacy: '#ec4899', atm: '#6366f1',
 };
 
+// Traffic speed → polyline color
+const SPEED_COLORS = {
+  NORMAL:       '#10b981', // green
+  SLOW:         '#f59e0b', // orange
+  TRAFFIC_JAM:  '#ef4444', // red
+};
+const DEFAULT_ROUTE_COLOR = '#3b82f6'; // blue fallback when no traffic data
+
 const LabeledPin = ({ color, label }) => (
   <div style={{
     width: 44, height: 55, cursor: 'pointer',
@@ -61,16 +69,42 @@ const Polyline = ({ path, color = '#3b82f6', weight = 6, opacity = 1, zIndex = 1
   return null;
 };
 
-// ── Google's built-in TrafficLayer (red/yellow/green road segments) ──
-const TrafficLayer = ({ enabled }) => {
-  const map = useMap();
-  useEffect(() => {
-    if (!map || !enabled) return;
-    const layer = new google.maps.TrafficLayer();
-    layer.setMap(map);
-    return () => layer.setMap(null);
-  }, [map, enabled]);
-  return null;
+// ── Traffic-colored active route ──
+// Splits the route polyline into per-speed segments based on Google's
+// speedReadingIntervals (NORMAL → green, SLOW → orange, TRAFFIC_JAM → red).
+const TrafficColoredRoute = ({ route, weight = 6, zIndex = 2 }) => {
+  const coords = route?.geometry?.coordinates;
+  const intervals = route?.speedReadingIntervals;
+
+  if (!coords?.length) return null;
+
+  // No traffic data (cycling/walking, or API didn't return intervals) — single blue line
+  if (!intervals?.length) {
+    return (
+      <Polyline path={coords} color={DEFAULT_ROUTE_COLOR} weight={weight} zIndex={zIndex} />
+    );
+  }
+
+  return (
+    <>
+      {intervals.map((iv, idx) => {
+        const start = iv.startPolylinePointIndex ?? 0;
+        const end   = (iv.endPolylinePointIndex ?? 0) + 1; // inclusive
+        const slice = coords.slice(start, end);
+        if (slice.length < 2) return null;
+        const color = SPEED_COLORS[iv.speed] || DEFAULT_ROUTE_COLOR;
+        return (
+          <Polyline
+            key={`traffic-${idx}-${start}-${end}`}
+            path={slice}
+            color={color}
+            weight={weight}
+            zIndex={zIndex}
+          />
+        );
+      })}
+    </>
+  );
 };
 
 // ── Weather-tinted polyline segments (planning view only) ──
@@ -122,7 +156,7 @@ const WeatherSegments = ({ activeRoute, weatherSamples }) => {
           color={RISK_COLORS[s.risk] || RISK_COLORS.unknown}
           weight={3}
           opacity={s.risk === 'clear' ? 0 : 0.9}
-          zIndex={3}
+          zIndex={4}
         />
       ))}
     </>
@@ -281,6 +315,7 @@ export default function MapContainer({
 
   const { incidents, setSelectedIncident } = useIncidentStore();
   const showIncidents = layers.incidents;
+  const showTrafficColors = layers.traffic;
 
   const [popupPlace, setPopupPlace] = useState(null);
   const [showSelectedPopup, setShowSelectedPopup] = useState(false);
@@ -323,8 +358,6 @@ export default function MapContainer({
         selectedPlace={selectedPlace} follow={follow} userLocation={userLocation}
         isNavigating={isNavigating} userHeading={userHeading}
       />
-
-      <TrafficLayer enabled={layers.traffic} />
 
       {validPoint(userLocation) && (
         <AdvancedMarker position={{ lat: userLocation.lat, lng: userLocation.lng }} zIndex={10}>
@@ -405,7 +438,7 @@ export default function MapContainer({
         </>
       )}
 
-      {/* Inactive routes (grey) */}
+      {/* Inactive routes — always grey, never traffic-colored */}
       {routePaths.map((rp) =>
         !rp.active && rp.path.length && !isNavigating ? (
           <Polyline key={`route-inactive-${rp.id}`} path={rp.path}
@@ -413,15 +446,29 @@ export default function MapContainer({
         ) : null
       )}
 
-      {/* Active route — blue base */}
-      {routePaths.map((rp) =>
-        rp.active && rp.path.length ? (
-          <Polyline key={`route-active-${rp.id}`} path={rp.path}
-            color="#3b82f6" weight={isNavigating ? 8 : 6} opacity={1} zIndex={2} />
-        ) : null
-      )}
+      {/* Active route — traffic-colored segments when intervals available + toggle on,
+          otherwise plain blue. Replaces the old single-blue render. */}
+      {activeRoute?.geometry?.coordinates?.length ? (
+        showTrafficColors ? (
+          <TrafficColoredRoute
+            key={`route-active-traffic-${activeRouteIdx}`}
+            route={activeRoute}
+            weight={isNavigating ? 8 : 6}
+            zIndex={2}
+          />
+        ) : (
+          <Polyline
+            key={`route-active-plain-${activeRouteIdx}`}
+            path={activeRoute.geometry.coordinates}
+            color={DEFAULT_ROUTE_COLOR}
+            weight={isNavigating ? 8 : 6}
+            opacity={1}
+            zIndex={2}
+          />
+        )
+      ) : null}
 
-      {/* Weather risk colored polyline (planning only) */}
+      {/* Weather risk colored polyline (planning only) — overlays on top */}
       {activeRoute && weatherSamples?.length > 1 && !isNavigating && (
         <WeatherSegments activeRoute={activeRoute} weatherSamples={weatherSamples} />
       )}

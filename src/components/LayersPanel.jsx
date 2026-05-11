@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 import { useMapStore } from '@/store/mapStore';
 
-// ── Animated toggle switch ──
 const Toggle = ({ enabled, onToggle, disabled }) => (
   <button
     onClick={onToggle}
@@ -25,7 +24,6 @@ const Toggle = ({ enabled, onToggle, disabled }) => (
   </button>
 );
 
-// ── A single layer row ──
 const LayerRow = ({
   icon: Icon, name, description, color,
   enabled, onToggle, comingSoon,
@@ -56,7 +54,6 @@ const LayerRow = ({
 export default function LayersPanel({ open, onClose }) {
   const { layers, toggleLayer } = useMapStore();
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === 'Escape' && onClose();
@@ -70,15 +67,15 @@ export default function LayersPanel({ open, onClose }) {
     {
       key: 'traffic',
       icon: Activity,
-      name: 'Live Traffic',
-      description: 'Real-time congestion on roads',
+      name: 'Route Traffic',
+      description: 'Color your route by live congestion',
       color: '#ef4444',
     },
     {
       key: 'weather',
       icon: CloudRain,
       name: 'Weather',
-      description: 'Forecast markers on route',
+      description: 'Forecast markers along route',
       color: '#0ea5e9',
     },
     {
@@ -87,7 +84,6 @@ export default function LayersPanel({ open, onClose }) {
       name: 'Incidents',
       description: 'Community-reported hazards',
       color: '#f59e0b',
-      // fully implemented — no comingSoon flag
     },
     {
       key: 'heatmap',
@@ -95,7 +91,7 @@ export default function LayersPanel({ open, onClose }) {
       name: 'Accident-prone',
       description: 'AI-predicted danger zones',
       color: '#dc2626',
-      comingSoon: true, // unlocks with the ML safety-score phase
+      comingSoon: true,
     },
   ];
 
@@ -139,35 +135,33 @@ export default function LayersPanel({ open, onClose }) {
             ))}
           </div>
 
-          {/* Legend for live traffic */}
-          {layers.traffic && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-2 pt-2 border-t border-slate-200/30 dark:border-white/5"
-            >
-              <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 px-1">
-                Traffic intensity
-              </p>
-              <div className="flex flex-wrap items-center gap-2 px-1">
-                {[
-                  { c: '#63991F', l: 'Smooth' },
-                  { c: '#EF9F27', l: 'Moderate' },
-                  { c: '#E24B4A', l: 'Heavy' },
-                  { c: '#791F1F', l: 'Standstill' },
-                ].map(({ c, l }) => (
-                  <span key={l} className="flex items-center gap-1.5 text-[10px]">
-                    <span
-                      className="h-1 w-4 rounded-full"
-                      style={{ background: c }}
-                    />
-                    <span className="text-slate-600 dark:text-slate-300">{l}</span>
-                  </span>
-                ))}
-              </div>
-            </motion.div>
-          )}
+          {/* Legend for route traffic — appears when toggle is on */}
+          <AnimatePresence>
+            {layers.traffic && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-2 pt-2 border-t border-slate-200/30 dark:border-white/5 overflow-hidden"
+              >
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 px-1">
+                  Traffic on your route
+                </p>
+                <div className="flex flex-wrap items-center gap-3 px-1">
+                  {[
+                    { c: '#10b981', l: 'Smooth' },
+                    { c: '#f59e0b', l: 'Slow' },
+                    { c: '#ef4444', l: 'Heavy' },
+                  ].map(({ c, l }) => (
+                    <span key={l} className="flex items-center gap-1.5 text-[10px]">
+                      <span className="h-1 w-4 rounded-full" style={{ background: c }} />
+                      <span className="text-slate-600 dark:text-slate-300">{l}</span>
+                    </span>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>

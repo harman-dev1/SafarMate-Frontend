@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light dark; }
+
+html, body, #root { height: 100%; }
+body {
+  @apply bg-white text-slate-900 antialiased font-sans;
+  -webkit-tap-highlight-color: transparent;
+}
+.dark body { @apply bg-ink-950 text-slate-100; }
+
+/* Glassmorphism utilities */
+@layer components {
+  .glass {
+    @apply bg-white/70 dark:bg-ink-900/60 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-glass;
+  }
+  .glass-strong {
+    @apply bg-white/90 dark:bg-ink-900/80 backdrop-blur-2xl border border-white/50 dark:border-white/10 shadow-glass;
+  }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-medium transition active:scale-[.98]; }
+  .btn-primary { @apply btn bg-brand-600 hover:bg-brand-500 text-white shadow-lg shadow-brand-500/20; }
+  .btn-ghost { @apply btn hover:bg-slate-100 dark:hover:bg-white/5; }
+  .btn-icon { @apply h-10 w-10 rounded-full grid place-items-center glass hover:scale-105 transition; }
+  .input {
+    @apply w-full bg-transparent outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { @apply bg-slate-300 dark:bg-white/10 rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-slate-400 dark:bg-white/20; }
+
+/* Google Maps polish */
+.gm-style { font-family: inherit !important; }
+.gm-style-iw-c {
+  background: rgba(255, 255, 255, 0.96) !important;
+  backdrop-filter: blur(12px);
+  border-radius: 12px !important;
+  padding: 12px 14px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18) !important;
+}
+.dark .gm-style-iw-c {
+  background: rgba(17, 23, 42, 0.94) !important;
+  color: #f1f5f9 !important;
+}
+.gm-style-iw-d { overflow: hidden !important; }
+.gm-style-iw-tc::after {
+  background: rgba(255, 255, 255, 0.96) !important;
+}
+.dark .gm-style-iw-tc::after {
+  background: rgba(17, 23, 42, 0.94) !important;
+}
+.gm-ui-hover-effect { opacity: 0.6 !important; }

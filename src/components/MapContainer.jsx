@@ -60,6 +60,18 @@ const Polyline = ({ path, color = '#3b82f6', weight = 6, opacity = 1, zIndex = 1
   return null;
 };
 
+// ── Google's built-in TrafficLayer (red/yellow/green road segments) ──
+const TrafficLayer = ({ enabled }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (!map || !enabled) return;
+    const layer = new google.maps.TrafficLayer();
+    layer.setMap(map);
+    return () => layer.setMap(null);
+  }, [map, enabled]);
+  return null;
+};
+
 // ── Weather-tinted polyline segments (planning view only) ──
 const WeatherSegments = ({ activeRoute, weatherSamples }) => {
   const segments = useMemo(() => {
@@ -276,6 +288,8 @@ const weatherMarkers = (() => {
         selectedPlace={selectedPlace} follow={follow} userLocation={userLocation}
         isNavigating={isNavigating} userHeading={userHeading}
       />
+
+      <TrafficLayer enabled={layers.traffic} />
 
       {validPoint(userLocation) && (
         <AdvancedMarker position={{ lat: userLocation.lat, lng: userLocation.lng }} zIndex={10}>

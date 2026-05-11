@@ -9,6 +9,7 @@ import RouteDetailsPanel from '@/components/RouteDetailsPanel.jsx';
 import NearbyPlacesPanel from '@/components/NearbyPlacesPanel.jsx';
 import WeatherPanel from '@/components/WeatherPanel.jsx';
 import MapControls from '@/components/MapControls.jsx';
+import LayersPanel from '../components/LayersPanel.jsx';
 import Navbar from '@/components/Navbar.jsx';
 import NavigationOverlay from '@/components/NavigationOverlay.jsx';
 import { useGeolocation } from '@/hooks/useGeolocation';
@@ -24,6 +25,7 @@ export default function MapPage() {
 
   const { openSidebar } = useOutletContext();
   const [bottomOpen] = useState(true);
+  const [layersOpen, setLayersOpen] = useState(false);
   const { userLocation, isNavigating, weather, weatherLoading } = useMapStore();
 
   const handleSOS = () => {
@@ -119,11 +121,18 @@ export default function MapPage() {
         </AnimatePresence>
 
         {!isNavigating && (
-          <MapControls
-            onToggleLayers={() => toast('Layers panel coming soon')}
-            onSOS={handleSOS}
-          />
-        )}
+  <MapControls
+    onToggleLayers={() => setLayersOpen((o) => !o)}
+    onSOS={handleSOS}
+  />
+)}
+
+{!isNavigating && (
+  <LayersPanel
+    open={layersOpen}
+    onClose={() => setLayersOpen(false)}
+  />
+)}
 
         <NavigationOverlay />
       </div>

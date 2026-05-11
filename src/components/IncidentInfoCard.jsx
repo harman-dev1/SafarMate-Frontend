@@ -38,13 +38,12 @@ export default function IncidentInfoCard() {
 
   const [busy, setBusy] = useState(false);
   const inc = selectedIncident;
-  if (!inc) return null;
 
-  const meta = TYPE_META[inc.type] || { emoji: '⚠️', label: inc.type };
-  const isMyReport = inc.reporter?._id === user?._id || inc.reporter === user?._id;
+  const meta = inc ? (TYPE_META[inc.type] || { emoji: '⚠️', label: inc.type }) : null;
+  const isMyReport = inc && (inc.reporter?._id === user?._id || inc.reporter === user?._id);
 
   const handleVerify = async (action) => {
-    if (!userLocation) return toast.error('Waiting for location…');
+    if (!userLocation || !inc) return toast.error('Waiting for location…');
     setBusy(true);
     try {
       const { data } = await apiVerifyIncident({
@@ -70,6 +69,7 @@ export default function IncidentInfoCard() {
   };
 
   const handleRemove = async () => {
+    if (!inc) return;
     setBusy(true);
     try {
       await apiRemoveIncident(inc._id);
@@ -85,77 +85,91 @@ export default function IncidentInfoCard() {
 
   return (
     <AnimatePresence>
-      <motion.div
-        key={inc._id}
-        initial={{ opacity: 0, y: 16, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 16, scale: 0.95 }}
-        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-        className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 w-[calc(100%-2rem)] max-w-md glass-strong rounded-2xl p-4 shadow-2xl"
-      >
-        <div className="flex items-start gap-3">
-          <div className="h-12 w-12 rounded-xl bg-amber-500/15 grid place-items-center text-2xl shrink-0">
-            {meta.emoji}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-bold text-base">{meta.label}</h3>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${severityColor[inc.severity]}`}>
-                {inc.severity.toUpperCase()}
-              </span>
+      {inc && (
+        /* Flex wrapper centers within the map area:
+           mobile = full width, lg+ = constrained to viewport minus right sidebar */
+        <div className="absolute inset-x-0 bottom-4 z-30 flex justify-center px-4 pointer-events-none lg:right-[21rem] xl:right-[25rem]">
+          <motion.div
+            key={inc._id}
+            initial={{ opacity: 0, y: 16, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+            className="w-full max-w-md glass-strong rounded-2xl p-4 shadow-2xl pointer-events-auto"
+          >
+            <div className="flex items-start gap-3">
+              <div className="h-12 w-12 rounded-xl bg-amber-500/15 grid place-items-center text-2xl shrink-0">
+                {meta.emoji}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-base">{meta.label}</h3>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${severityColor[inc.severity]}`}>
+                    {inc.severity.toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
+                  <span className="flex items-center gap-1">
+                    <Clock size={11} /> {fmtAgo(inc.createdAt)}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <UserIcon size={11} /> {inc.reporter?.displayName || 'Anonymous'}
+                  </span>
+                </div>
+                {inc.note && (
+                  <p className="text-xs text-slate-700 dark:text-slate-300 mt-2 italic">"{inc.note}"</p>
+                )}
+                <div className="flex items-center gap-4 mt-2 text-[11px]">
+                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+                    <ThumbsUp size={11} /> {Math.round(inc.confirmations || 0)}
+                  </span>
+                  <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 font-semibold">
+                    <ThumbsDown size={11} /> {Math.round(inc.denials || 0)}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedIncident(null)}
+                className="h-7 w-7 grid place-items-center rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 transition shrink-0"
+                aria-label="Close"
+              >
+                <X size={14} />
+              </button>
             </div>
-            <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
-              <span className="flex items-center gap-1"><Clock size={11} /> {fmtAgo(inc.createdAt)}</span>
-              <span className="flex items-center gap-1"><UserIcon size={11} /> {inc.reporter?.displayName || 'Anonymous'}</span>
-            </div>
-            {inc.note && (
-              <p className="text-xs text-slate-700 dark:text-slate-300 mt-2 italic">"{inc.note}"</p>
-            )}
-            <div className="flex items-center gap-4 mt-2 text-[11px]">
-              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
-                <ThumbsUp size={11} /> {Math.round(inc.confirmations || 0)}
-              </span>
-              <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 font-semibold">
-                <ThumbsDown size={11} /> {Math.round(inc.denials || 0)}
-              </span>
-            </div>
-          </div>
-          <button onClick={() => setSelectedIncident(null)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 transition shrink-0">
-            <X size={14} />
-          </button>
-        </div>
 
-        {/* Actions */}
-        <div className="mt-3 flex gap-2">
-          {isMyReport ? (
-            <button
-              onClick={handleRemove}
-              disabled={busy}
-              className="flex-1 py-2 rounded-xl text-xs font-semibold bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
-            >
-              {busy ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-              Remove my report
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={() => handleVerify('confirm')}
-                disabled={busy}
-                className="flex-1 py-2 rounded-xl text-xs font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
-              >
-                <ThumbsUp size={12} /> Still here
-              </button>
-              <button
-                onClick={() => handleVerify('deny')}
-                disabled={busy}
-                className="flex-1 py-2 rounded-xl text-xs font-semibold bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
-              >
-                <ThumbsDown size={12} /> Cleared
-              </button>
-            </>
-          )}
+            {/* Actions */}
+            <div className="mt-3 flex gap-2">
+              {isMyReport ? (
+                <button
+                  onClick={handleRemove}
+                  disabled={busy}
+                  className="flex-1 py-2 rounded-xl text-xs font-semibold bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {busy ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                  Remove my report
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => handleVerify('confirm')}
+                    disabled={busy}
+                    className="flex-1 py-2 rounded-xl text-xs font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    <ThumbsUp size={12} /> Still here
+                  </button>
+                  <button
+                    onClick={() => handleVerify('deny')}
+                    disabled={busy}
+                    className="flex-1 py-2 rounded-xl text-xs font-semibold bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    <ThumbsDown size={12} /> Cleared
+                  </button>
+                </>
+              )}
+            </div>
+          </motion.div>
         </div>
-      </motion.div>
+      )}
     </AnimatePresence>
   );
 }

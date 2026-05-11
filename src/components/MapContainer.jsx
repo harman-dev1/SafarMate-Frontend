@@ -116,27 +116,30 @@ const WeatherSegments = ({ activeRoute, weatherSamples }) => {
   );
 };
 
-// ── Weather markers along the route — visible during navigation too ──
-const WeatherRouteMarker = ({ sample, onClick }) => {
+// ── Weather marker — bigger and glowier during navigation ──
+const WeatherRouteMarker = ({ sample, isNav = false }) => {
   const f = sample.forecast;
   const { Icon, color } = conditionIcon(f?.conditionType, f?.condition);
   const riskColor = RISK_COLORS[sample.risk] || RISK_COLORS.unknown;
+  const size = isNav ? 46 : 38;
+  const iconSize = isNav ? 24 : 20;
   return (
     <div
-      onClick={onClick}
       style={{
-        width: 38, height: 38, borderRadius: '50%',
+        width: size, height: size, borderRadius: '50%',
         background: 'white',
-        border: `2.5px solid ${riskColor}`,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
+        border: `${isNav ? 3.5 : 2.5}px solid ${riskColor}`,
+        boxShadow: isNav
+          ? `0 4px 16px rgba(0,0,0,0.55), 0 0 0 6px ${riskColor}30, 0 0 24px ${riskColor}55`
+          : '0 4px 12px rgba(0,0,0,0.35)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        cursor: 'pointer',
+        cursor: isNav ? 'default' : 'pointer',
         transition: 'transform 0.15s ease-out',
       }}
-      onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-      onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+      onMouseEnter={!isNav ? (e) => (e.currentTarget.style.transform = 'scale(1.1)') : undefined}
+      onMouseLeave={!isNav ? (e) => (e.currentTarget.style.transform = 'scale(1)') : undefined}
     >
-      <Icon size={20} color={color} strokeWidth={2.2} />
+      <Icon size={iconSize} color={color} strokeWidth={2.4} />
     </div>
   );
 };
@@ -189,13 +192,16 @@ const MapBridge = ({
     map.setZoom(15);
   }, [map, follow, userLocation, isNavigating]);
 
+  // ── NAVIGATION CAMERA ──
+  // Lower zoom (17) + lower tilt (50°) so weather markers along the route
+  // come into view well before the driver reaches them.
   useEffect(() => {
     if (!map) return;
     if (isNavigating && userLocation) {
       map.panTo({ lat: userLocation.lat, lng: userLocation.lng });
-      map.setZoom(18);
+      map.setZoom(17);
       try {
-        map.setTilt(60);
+        map.setTilt(50);
         if (Number.isFinite(userHeading)) map.setHeading(userHeading);
       } catch {}
     } else if (!isNavigating) {
@@ -232,6 +238,8 @@ export default function MapContainer({
   const [weatherPopup, setWeatherPopup] = useState(null);
 
   useEffect(() => { if (selectedPlace) setShowSelectedPopup(true); }, [selectedPlace]);
+  // Auto-close weather popup if navigation starts
+  useEffect(() => { if (isNavigating) setWeatherPopup(null); }, [isNavigating]);
 
   const routePaths = useMemo(
     () => routes.map((r, i) => ({
@@ -244,10 +252,13 @@ export default function MapContainer({
 
   const activeRoute = routes[activeRouteIdx];
   const weatherSamples = layers.weather ? weather?.samples : null;
-  // Trim first/last (they overlap with origin/destination pins)
-  const weatherMarkers = weatherSamples && weatherSamples.length >= 3
-    ? weatherSamples.slice(1, -1)
-    : [];
+// On long routes: skip start/end (they overlap with origin/destination pins).
+// On short routes with few samples: show whatever we have so markers aren't lost.
+const weatherMarkers = (() => {
+  if (!weatherSamples?.length) return [];
+  const middle = weatherSamples.slice(1, -1);
+  return middle.length > 0 ? middle : weatherSamples;
+})();
 
   return (
     <Map
@@ -366,19 +377,19 @@ export default function MapContainer({
         <WeatherSegments activeRoute={activeRoute} weatherSamples={weatherSamples} />
       )}
 
-      {/* Weather markers along the route — visible during navigation too */}
-      {weatherMarkers.map((s, i) => (
+      {/* Weather markers — visible during navigation too, bigger + glowier */}
+      {weatherMarkers.map((s) => (
         <AdvancedMarker
           key={`wmark-${s.distFromStart}`}
           position={{ lat: s.lat, lng: s.lng }}
           zIndex={4}
           onClick={() => !isNavigating && setWeatherPopup(s)}
         >
-          <WeatherRouteMarker sample={s} />
+          <WeatherRouteMarker sample={s} isNav={isNavigating} />
         </AdvancedMarker>
       ))}
 
-      {/* Weather marker info window */}
+      {/* Weather marker info window — only when not navigating */}
       {weatherPopup && !isNavigating && (
         <InfoWindow
           position={{ lat: weatherPopup.lat, lng: weatherPopup.lng }}

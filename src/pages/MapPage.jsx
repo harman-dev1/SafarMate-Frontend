@@ -66,15 +66,16 @@ export default function MapPage() {
 
         {!isNavigating && <Navbar onOpenSidebar={openSidebar} />}
 
+        {/* Search bar — narrower at lg, wider at xl, no overlap with sidebars */}
         {!isNavigating && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[calc(100%-1.5rem)] max-w-xl z-20 px-3 lg:px-0">
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[calc(100%-1.5rem)] max-w-sm xl:max-w-xl z-20 px-3 lg:px-0">
             <SearchBar />
           </div>
         )}
 
         {/* RIGHT sidebar — controls + alternatives + nearby */}
         {!isNavigating && (
-          <aside className="hidden lg:flex flex-col gap-3 absolute top-20 right-4 bottom-24 w-96 z-20 overflow-y-auto pr-1">
+          <aside className="hidden lg:flex flex-col gap-3 absolute top-20 right-4 bottom-24 w-80 xl:w-96 z-20 overflow-y-auto pr-1">
             <RoutePanel />
             <RouteDetailsPanel />
             <NearbyPlacesPanel />
@@ -85,15 +86,15 @@ export default function MapPage() {
         <AnimatePresence>
           {showWeatherAside && (
             <motion.aside
-              key="weather-aside"
-              initial={{ opacity: 0, x: -24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
-              transition={{ type: 'spring', stiffness: 280, damping: 30 }}
-              className="hidden lg:flex flex-col gap-3 absolute top-20 left-4 bottom-24 w-96 z-20 overflow-y-auto pl-1"
-            >
-              <WeatherPanel />
-            </motion.aside>
+  key="weather-aside"
+  initial={{ opacity: 0, x: -24 }}
+  animate={{ opacity: 1, x: 0 }}
+  exit={{ opacity: 0, x: -24 }}
+  transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+  className="hidden lg:flex flex-col gap-3 absolute top-20 left-4 bottom-6 w-80 xl:w-96 z-20 overflow-y-auto pl-1"
+>
+  <WeatherPanel />
+</motion.aside>
           )}
         </AnimatePresence>
 

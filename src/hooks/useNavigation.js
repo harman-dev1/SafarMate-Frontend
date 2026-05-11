@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useMapStore } from '@/store/mapStore';
+import { useIncidentStore } from '@/store/incidentStore';
 import {
   distanceMeters, bearing, projectOnPolyline, remainingMetersOnPolyline,
 } from '@/utils/geo';
@@ -10,6 +11,13 @@ import toast from 'react-hot-toast';
 const OFF_ROUTE_THRESHOLD = 80;
 const ARRIVAL_THRESHOLD = 30;
 const VOICE_TRIGGERS = [600, 250, 80, 30];
+
+// How close (perpendicular) an incident must be to the route polyline to count as "on the route"
+const INCIDENT_ON_ROUTE_THRESHOLD = 150; // metres
+
+// Distance window ahead of the user where we voice-announce incidents
+const INCIDENT_ANNOUNCE_MIN = 100;
+const INCIDENT_ANNOUNCE_MAX = 2000;
 
 export const useNavigation = () => {
   const {
@@ -23,7 +31,9 @@ export const useNavigation = () => {
   const lastVoiceFireRef = useRef({});
   const reroutingRef = useRef(false);
   const offRouteSinceRef = useRef(0);
-  const weatherAnnouncedRef = useRef(new Set()); // sample distFromStart values already spoken
+  const weatherAnnouncedRef = useRef(new Set());
+  const incidentAnnouncedRef = useRef(new Set());
+  const verifiedPromptedRef = useRef(new Set());
 
   useEffect(() => {
     voice.setMuted(voiceMuted);
@@ -40,6 +50,8 @@ export const useNavigation = () => {
       offRouteSinceRef.current = 0;
       reroutingRef.current = false;
       weatherAnnouncedRef.current = new Set();
+      incidentAnnouncedRef.current = new Set();
+      verifiedPromptedRef.current = new Set();
       return;
     }
 
@@ -51,6 +63,8 @@ export const useNavigation = () => {
     }
 
     const coords = route.geometry.coordinates;
+    const totalDist = route.distance || 1;
+    const totalDur = route.duration || 1;
     const steps = route.steps || [];
     const stepSegIndex = computeStepSegmentIndices(coords, steps);
 
@@ -58,6 +72,32 @@ export const useNavigation = () => {
     if (firstStep) {
       voice.say(`Starting navigation. ${cleanInstruction(firstStep.instruction)}`, { priority: 'high' });
     }
+
+    // ── Announce all incidents on the route at start (gives a heads-up) ──
+    setTimeout(() => {
+      if (!isNavigating) return;
+      const allIncidents = useIncidentStore.getState().incidents || [];
+      const incidentsOnRoute = allIncidents.filter((inc) => {
+        if (!inc?.location?.coordinates) return false;
+        const ipos = {
+          lat: inc.location.coordinates[1],
+          lng: inc.location.coordinates[0],
+        };
+        const iproj = projectOnPolyline(ipos, coords);
+        return iproj.distance <= INCIDENT_ON_ROUTE_THRESHOLD;
+      });
+      if (incidentsOnRoute.length > 0 && !useMapStore.getState().voiceMuted) {
+        const count = incidentsOnRoute.length;
+        const typeList = [...new Set(incidentsOnRoute.map((i) => i.type))].slice(0, 2).join(' and ');
+        voice.say(
+          `Heads up — ${count} ${count === 1 ? 'incident' : 'incidents'} reported on your route. ${typeList} ahead.`,
+          { priority: 'high' }
+        );
+        toast(`📍 ${count} incident${count > 1 ? 's' : ''} on your route — drive carefully`, {
+          duration: 6000,
+        });
+      }
+    }, 3500);
 
     if (!('geolocation' in navigator)) {
       toast.error('Geolocation not supported');
@@ -116,11 +156,7 @@ export const useNavigation = () => {
         );
         const remainingMeters = remainingMetersOnPolyline(coords, proj.segmentIndex, proj.t);
 
-        const totalDist = route.distance || 1;
-        const totalDur = route.duration || 1;
         const remainingDuration = (remainingMeters / totalDist) * totalDur;
-
-        // Distance covered along route (used for weather lookahead)
         const distCoveredFromStart = totalDist - remainingMeters;
 
         setNavProgress({
@@ -155,9 +191,8 @@ export const useNavigation = () => {
         const weather = useMapStore.getState().weather;
         if (weather?.samples?.length) {
           for (const s of weather.samples) {
-            // Sample is "ahead of us" if its distFromStart is greater than what we've covered
             const ahead = s.distFromStart - distCoveredFromStart;
-            if (ahead < 1500 || ahead > 6000) continue; // announce 1.5–6 km ahead
+            if (ahead < 1500 || ahead > 6000) continue;
             if ((s.risk !== 'moderate' && s.risk !== 'severe')) continue;
             if (weatherAnnouncedRef.current.has(s.distFromStart)) continue;
 
@@ -169,7 +204,58 @@ export const useNavigation = () => {
                 : `${cond} expected in about ${km} kilometers ahead.`;
             voice.say(phrase, { priority: 'high' });
             weatherAnnouncedRef.current.add(s.distFromStart);
-            break; // one announcement per tick
+            break;
+          }
+        }
+
+        // ── Voice: incident alerts on route (FIXED MATH) ──
+        const incidents = useIncidentStore.getState().incidents;
+        if (incidents?.length && coords?.length) {
+          for (const inc of incidents) {
+            if (incidentAnnouncedRef.current.has(inc._id)) continue;
+            if (!inc?.location?.coordinates) continue;
+
+            const ipos = {
+              lat: inc.location.coordinates[1],
+              lng: inc.location.coordinates[0],
+            };
+            const iproj = projectOnPolyline(ipos, coords);
+
+            // Skip if incident is not close enough to the route line
+            if (iproj.distance > INCIDENT_ON_ROUTE_THRESHOLD) continue;
+
+            // Correct along-route distance: totalDist minus what's left from incident → end
+            const distFromIncidentToEnd = remainingMetersOnPolyline(coords, iproj.segmentIndex, iproj.t);
+            const incDistFromStart = totalDist - distFromIncidentToEnd;
+            const aheadMeters = incDistFromStart - distCoveredFromStart;
+
+            if (aheadMeters < INCIDENT_ANNOUNCE_MIN || aheadMeters > INCIDENT_ANNOUNCE_MAX) continue;
+            if (useMapStore.getState().voiceMuted) continue;
+
+            const km =
+              aheadMeters >= 1000
+                ? `${(aheadMeters / 1000).toFixed(1)} kilometers`
+                : `${Math.round(aheadMeters)} meters`;
+            voice.say(`Caution. ${inc.type} reported in ${km} ahead.`, { priority: 'high' });
+            incidentAnnouncedRef.current.add(inc._id);
+            break;
+          }
+        }
+
+        // ── Verify prompt: nudge user when they've just passed an active incident ──
+        const incidentsForPrompt = useIncidentStore.getState().incidents;
+        for (const inc of incidentsForPrompt) {
+          if (verifiedPromptedRef.current.has(inc._id)) continue;
+          if (!inc?.location?.coordinates) continue;
+          const ipos = {
+            lat: inc.location.coordinates[1],
+            lng: inc.location.coordinates[0],
+          };
+          const dist = distanceMeters(here, ipos);
+          if (dist < 100) {
+            useIncidentStore.getState().setVerifyPrompt({ incident: inc, distMeters: dist });
+            verifiedPromptedRef.current.add(inc._id);
+            break;
           }
         }
 

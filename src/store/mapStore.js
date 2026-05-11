@@ -63,13 +63,13 @@ export const useMapStore = create((set, get) => ({
   toggleVoiceMute: () => set((s) => ({ voiceMuted: !s.voiceMuted })),
 
   // ── Weather along route ──
-  weather: null,           // { samples: [...], summary: {...} }
+  weather: null,
   weatherLoading: false,
   setWeather: (w) => set({ weather: w }),
   setWeatherLoading: (v) => set({ weatherLoading: v }),
 
   // ── Layers ──
-  layers: { traffic: false, heatmap: false, weather: true, incidents: false },
+  layers: { traffic: false, heatmap: false, weather: true, incidents: true },
   toggleLayer: (key) => set((s) => ({ layers: { ...s.layers, [key]: !s.layers[key] } })),
 
   // ── Nearby ──

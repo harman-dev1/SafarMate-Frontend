@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Map, AdvancedMarker, InfoWindow, useMap } from '@vis.gl/react-google-maps';
 import { useTheme } from '@/context/ThemeContext';
 import { useMapStore } from '@/store/mapStore';
+import { useIncidentStore } from '@/store/incidentStore';
 import { conditionIcon, RISK_COLORS } from '@/utils/weatherIcons';
 
 const MAP_ID_LIGHT = 'safarmate_light';
@@ -156,6 +157,43 @@ const WeatherRouteMarker = ({ sample, isNav = false }) => {
   );
 };
 
+// ── Incident pin component ──
+const INCIDENT_META = {
+  pothole:      { emoji: '🕳️', color: '#f59e0b' },
+  roadblock:    { emoji: '🚧', color: '#ef4444' },
+  construction: { emoji: '🏗️', color: '#facc15' },
+  flooding:     { emoji: '🌊', color: '#3b82f6' },
+  checkpoint:   { emoji: '👮', color: '#6366f1' },
+  obstacle:     { emoji: '🐄', color: '#f97316' },
+};
+
+const IncidentPin = ({ incident, dim, isNav }) => {
+  const meta = INCIDENT_META[incident.type] || { emoji: '⚠️', color: '#94a3b8' };
+  const size = isNav ? 38 : 34;
+  return (
+    <div
+      style={{
+        width: size, height: size, borderRadius: '50%',
+        background: 'white',
+        border: `3px solid ${meta.color}`,
+        boxShadow: isNav
+          ? `0 4px 14px rgba(0,0,0,0.5), 0 0 0 5px ${meta.color}30`
+          : '0 3px 10px rgba(0,0,0,0.35)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer',
+        fontSize: size * 0.5,
+        lineHeight: 1,
+        opacity: dim ? 0.55 : 1,
+        transition: 'transform 0.15s ease-out',
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
+      onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+    >
+      <span aria-hidden>{meta.emoji}</span>
+    </div>
+  );
+};
+
 const fmtKmShort = (m) => (m / 1000).toFixed(0);
 const fmtTimeShort = (ms) =>
   new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -204,9 +242,6 @@ const MapBridge = ({
     map.setZoom(15);
   }, [map, follow, userLocation, isNavigating]);
 
-  // ── NAVIGATION CAMERA ──
-  // Lower zoom (17) + lower tilt (50°) so weather markers along the route
-  // come into view well before the driver reaches them.
   useEffect(() => {
     if (!map) return;
     if (isNavigating && userLocation) {
@@ -244,13 +279,15 @@ export default function MapContainer({
     isNavigating, weather, layers,
   } = useMapStore();
 
+  const { incidents, setSelectedIncident } = useIncidentStore();
+  const showIncidents = layers.incidents;
+
   const [popupPlace, setPopupPlace] = useState(null);
   const [showSelectedPopup, setShowSelectedPopup] = useState(false);
   const [routeStopPopup, setRouteStopPopup] = useState(null);
   const [weatherPopup, setWeatherPopup] = useState(null);
 
   useEffect(() => { if (selectedPlace) setShowSelectedPopup(true); }, [selectedPlace]);
-  // Auto-close weather popup if navigation starts
   useEffect(() => { if (isNavigating) setWeatherPopup(null); }, [isNavigating]);
 
   const routePaths = useMemo(
@@ -264,13 +301,11 @@ export default function MapContainer({
 
   const activeRoute = routes[activeRouteIdx];
   const weatherSamples = layers.weather ? weather?.samples : null;
-// On long routes: skip start/end (they overlap with origin/destination pins).
-// On short routes with few samples: show whatever we have so markers aren't lost.
-const weatherMarkers = (() => {
-  if (!weatherSamples?.length) return [];
-  const middle = weatherSamples.slice(1, -1);
-  return middle.length > 0 ? middle : weatherSamples;
-})();
+  const weatherMarkers = (() => {
+    if (!weatherSamples?.length) return [];
+    const middle = weatherSamples.slice(1, -1);
+    return middle.length > 0 ? middle : weatherSamples;
+  })();
 
   return (
     <Map
@@ -434,6 +469,22 @@ const weatherMarkers = (() => {
           </div>
         </InfoWindow>
       )}
+
+      {/* Incident pins — visible during navigation too */}
+      {showIncidents && incidents.map((inc) => (
+        <AdvancedMarker
+          key={`inc-${inc._id}`}
+          position={{ lat: inc.location.coordinates[1], lng: inc.location.coordinates[0] }}
+          zIndex={5}
+          onClick={() => !isNavigating && setSelectedIncident(inc)}
+        >
+          <IncidentPin
+            incident={inc}
+            dim={(inc.confirmations || 0) < 1}
+            isNav={isNavigating}
+          />
+        </AdvancedMarker>
+      ))}
 
       {!isNavigating && nearbyPlaces.map((p) => {
         const color = categoryColors[p.category] || '#3b82f6';

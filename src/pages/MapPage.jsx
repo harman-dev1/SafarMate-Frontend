@@ -9,11 +9,17 @@ import RouteDetailsPanel from '@/components/RouteDetailsPanel.jsx';
 import NearbyPlacesPanel from '@/components/NearbyPlacesPanel.jsx';
 import WeatherPanel from '@/components/WeatherPanel.jsx';
 import MapControls from '@/components/MapControls.jsx';
-import LayersPanel from '../components/LayersPanel.jsx';
+import LayersPanel from '@/components/LayersPanel.jsx';
 import Navbar from '@/components/Navbar.jsx';
 import NavigationOverlay from '@/components/NavigationOverlay.jsx';
+import ReportButton from '@/components/ReportButton.jsx';
+import ReportIncidentModal from '@/components/ReportIncidentModal.jsx';
+import IncidentInfoCard from '@/components/IncidentInfoCard.jsx';
+import VerifyIncidentPrompt from '@/components/VerifyIncidentPrompt.jsx';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useNavigation } from '@/hooks/useNavigation';
+import { useIncidentSocket } from '@/hooks/useIncidentSocket';
+import { useIncidentBootstrap } from '@/hooks/useIncidentBootstrap';
 import { useMapStore } from '@/store/mapStore';
 import toast from 'react-hot-toast';
 
@@ -22,6 +28,8 @@ const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
 export default function MapPage() {
   useGeolocation(true);
   useNavigation();
+  useIncidentSocket();
+  useIncidentBootstrap();
 
   const { openSidebar } = useOutletContext();
   const [bottomOpen] = useState(true);
@@ -88,15 +96,15 @@ export default function MapPage() {
         <AnimatePresence>
           {showWeatherAside && (
             <motion.aside
-  key="weather-aside"
-  initial={{ opacity: 0, x: -24 }}
-  animate={{ opacity: 1, x: 0 }}
-  exit={{ opacity: 0, x: -24 }}
-  transition={{ type: 'spring', stiffness: 280, damping: 30 }}
-  className="hidden lg:flex flex-col gap-3 absolute top-20 left-4 bottom-6 w-80 xl:w-96 z-20 overflow-y-auto pl-1"
->
-  <WeatherPanel />
-</motion.aside>
+              key="weather-aside"
+              initial={{ opacity: 0, x: -24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+              className="hidden lg:flex flex-col gap-3 absolute top-20 left-4 bottom-6 w-80 xl:w-96 z-20 overflow-y-auto pl-1"
+            >
+              <WeatherPanel />
+            </motion.aside>
           )}
         </AnimatePresence>
 
@@ -121,20 +129,26 @@ export default function MapPage() {
         </AnimatePresence>
 
         {!isNavigating && (
-  <MapControls
-    onToggleLayers={() => setLayersOpen((o) => !o)}
-    onSOS={handleSOS}
-  />
-)}
+          <MapControls
+            onToggleLayers={() => setLayersOpen((o) => !o)}
+            onSOS={handleSOS}
+          />
+        )}
 
-{!isNavigating && (
-  <LayersPanel
-    open={layersOpen}
-    onClose={() => setLayersOpen(false)}
-  />
-)}
+        {!isNavigating && (
+          <LayersPanel
+            open={layersOpen}
+            onClose={() => setLayersOpen(false)}
+          />
+        )}
 
         <NavigationOverlay />
+
+        {/* Incident reporting UI */}
+        <ReportButton />
+        <ReportIncidentModal />
+        <IncidentInfoCard />
+        <VerifyIncidentPrompt />
       </div>
     </APIProvider>
   );

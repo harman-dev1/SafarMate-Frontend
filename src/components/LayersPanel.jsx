@@ -87,15 +87,15 @@ export default function LayersPanel({ open, onClose }) {
       name: 'Incidents',
       description: 'Community-reported hazards',
       color: '#f59e0b',
-      comingSoon: true,
+      // fully implemented — no comingSoon flag
     },
     {
       key: 'heatmap',
       icon: Flame,
       name: 'Accident-prone',
-      description: 'Historical danger zones',
+      description: 'AI-predicted danger zones',
       color: '#dc2626',
-      comingSoon: true,
+      comingSoon: true, // unlocks with the ML safety-score phase
     },
   ];
 

@@ -4,6 +4,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useMapStore } from '@/store/mapStore';
 import { useIncidentStore } from '@/store/incidentStore';
 import { conditionIcon, RISK_COLORS } from '@/utils/weatherIcons';
+import { SafetySegments } from '@/components/SafetyScoreLayer';
 
 const MAP_ID_LIGHT = 'safarmate_light';
 const MAP_ID_DARK = 'safarmate_dark';
@@ -310,7 +311,7 @@ export default function MapContainer({
     origin, destination, waypoints,
     routes, activeRouteIdx,
     nearbyPlaces,
-    isNavigating, weather, layers,
+    isNavigating, weather, layers, safety,
   } = useMapStore();
 
   const { incidents, setSelectedIncident } = useIncidentStore();
@@ -335,7 +336,9 @@ export default function MapContainer({
   );
 
   const activeRoute = routes[activeRouteIdx];
-  const weatherSamples = layers.weather ? weather?.samples : null;
+const weatherSamples = layers.weather ? weather?.samples : null;
+const safetySamples = layers.safety ? safety?.samples : null;
+
   const weatherMarkers = (() => {
     if (!weatherSamples?.length) return [];
     const middle = weatherSamples.slice(1, -1);
@@ -470,8 +473,12 @@ export default function MapContainer({
 
       {/* Weather risk colored polyline (planning only) — overlays on top */}
       {activeRoute && weatherSamples?.length > 1 && !isNavigating && (
-        <WeatherSegments activeRoute={activeRoute} weatherSamples={weatherSamples} />
-      )}
+<WeatherSegments activeRoute={activeRoute} weatherSamples={weatherSamples} />
+)}
+{activeRoute && safetySamples?.length > 1 && !isNavigating && (
+<SafetySegments activeRoute={activeRoute} safetySamples={safetySamples} />
+)}
+
 
       {/* Weather markers — visible during navigation too, bigger + glowier */}
       {weatherMarkers.map((s) => (

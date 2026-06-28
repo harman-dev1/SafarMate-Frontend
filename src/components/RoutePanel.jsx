@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowDownUp, Plus, X, Car, Bike, PersonStanding, Navigation, Loader2,
-  Ban, Play, CloudSun,
+  Ban, Play, CloudSun, ShieldAlert,
 } from 'lucide-react';
 import { useMapStore } from '@/store/mapStore';
 import { apiComputeRoute } from '@/api/route';
 import { apiWeatherAlongRoute } from '@/api/weather';
+import { apiSafetyAlongRoute } from '@/api/safety';
 import LocationPickerInput from './LocationPickerInput.jsx';
 import toast from 'react-hot-toast';
 
@@ -18,6 +19,8 @@ export default function RoutePanel() {
     toggleAvoid,
     isNavigating, startNavigation,
     weather, weatherLoading, setWeather, setWeatherLoading,
+    safety, safetyLoading, setSafety, setSafetyLoading,
+
   } = useMapStore();
 
   const [loading, setLoading] = useState(false);
@@ -89,6 +92,40 @@ export default function RoutePanel() {
       setWeatherLoading(false);
     }
   };
+
+  const handleCheckSafety = async () => {
+const route = routes[activeRouteIdx];
+if (!route?.geometry?.coordinates?.length) {
+return toast.error('Compute a route first');
+}
+setSafetyLoading(true);
+const loadingToast = toast.loading('Scoring road safety along your route…');
+try {
+const { data } = await apiSafetyAlongRoute({
+coordinates: route.geometry.coordinates,
+});
+setSafety(data.data);
+toast.dismiss(loadingToast);
+const summary = data.data?.summary;
+if (summary?.worstBand === 'dangerous' || summary?.worstBand === 'risky') {
+toast.error(`${summary.riskySegmentCount} risky segment(s) on this route`, { icon: '(warning)' });
+} else if (summary?.segmentCount) {
+toast.success(`Looks good — average score ${summary.averageScore}/100`, { icon: '(shield)' });
+} else {
+toast('No scored segments found near this route yet', { icon: '(info)' });
+}
+} catch (err) {
+toast.dismiss(loadingToast);
+const msg =
+9
+err.response?.data?.message ||
+err.response?.data?.upstream?.error?.message ||
+'Failed to check safety score';
+toast.error(msg);
+} finally {
+setSafetyLoading(false);
+}
+};
 
   const handleStart = () => {
     if (!routes[activeRouteIdx]) return toast.error('Compute a route first');
@@ -212,27 +249,44 @@ export default function RoutePanel() {
 
       {/* Action buttons — Check Weather + Start Navigation */}
       {activeRoute && (
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          <button
-            onClick={handleCheckWeather}
-            disabled={weatherLoading}
-            className="py-3 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-white font-semibold flex items-center justify-center gap-2 shadow-lg shadow-sky-500/30 transition active:scale-[.98] disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {weatherLoading
-              ? <Loader2 size={18} className="animate-spin" />
-              : <CloudSun size={18} />
-            }
-            <span>{weather ? 'Refresh' : 'Check Weather'}</span>
-          </button>
-          <button
-            onClick={handleStart}
-            className="py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-semibold flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30 transition active:scale-[.98]"
-          >
-            <Play size={18} fill="currentColor" />
-            Start
-          </button>
-        </div>
-      )}
+<> <div className="grid grid-cols-2 gap-2 mt-2"> <button
+     onClick={handleCheckWeather}
+     disabled={weatherLoading}
+     className="py-3 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-white font-semibold flex items-center justify-center gap-2 shadow-lg shadow-sky-500/30 transition active:scale-[.98] disabled:opacity-60 disabled:cursor-not-allowed"
+   >
+{weatherLoading
+? <Loader2 size={18} className="animate-spin" />
+: <CloudSun size={18} />
+} <span>{weather ? 'Refresh' : 'Check Weather'}</span> </button>
+
+```
+  <button
+    onClick={handleStart}
+    className="py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-semibold flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30 transition active:scale-[.98]"
+  >
+    <Play size={18} fill="currentColor" />
+    Start
+  </button>
+</div>
+
+<div className="mt-2">
+  <button
+    onClick={handleCheckSafety}
+    disabled={safetyLoading}
+    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-white font-semibold flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30 transition active:scale-[.98] disabled:opacity-60 disabled:cursor-not-allowed"
+  >
+    {safetyLoading
+      ? <Loader2 size={18} className="animate-spin" />
+      : <ShieldAlert size={18} />
+    }
+    <span>{safety ? 'Refresh Safety Score' : 'Check Safety Score'}</span>
+  </button>
+</div>
+```
+
+</>
+)}
+
     </motion.div>
   );
 }

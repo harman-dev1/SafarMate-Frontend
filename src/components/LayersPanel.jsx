@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Layers, Activity, CloudRain, AlertTriangle, Flame, X,
+  Layers, Activity, CloudRain, AlertTriangle, Flame, X, ShieldAlert,
 } from 'lucide-react';
 import { useMapStore } from '@/store/mapStore';
+import { SafetyLegend } from '@/components/SafetyScoreLayer';
 
 const Toggle = ({ enabled, onToggle, disabled }) => (
   <button
@@ -86,13 +87,12 @@ export default function LayersPanel({ open, onClose }) {
       color: '#f59e0b',
     },
     {
-      key: 'heatmap',
-      icon: Flame,
-      name: 'Accident-prone',
-      description: 'AI-predicted danger zones',
-      color: '#dc2626',
-      comingSoon: true,
-    },
+key: 'safety',
+icon: ShieldAlert,
+name: 'Safety Score',
+description: 'ML-rated road segments along your route',
+color: '#16a34a',
+},
   ];
 
   return (
@@ -162,6 +162,23 @@ export default function LayersPanel({ open, onClose }) {
               </motion.div>
             )}
           </AnimatePresence>
+          {/* Legend for safety score — appears when toggle is on */}
+<AnimatePresence>
+{layers.safety && (
+<motion.div
+initial={{ opacity: 0, height: 0 }}
+animate={{ opacity: 1, height: 'auto' }}
+exit={{ opacity: 0, height: 0 }}
+className="mt-2 pt-2 border-t border-slate-200/30 dark:border-white/5 overflow-hidden"
+>
+<p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5
+,→ px-1">
+Safety score on your route
+</p>
+<SafetyLegend />
+</motion.div>
+)}
+</AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>

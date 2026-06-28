@@ -63,14 +63,18 @@ export const useMapStore = create((set, get) => ({
   toggleVoiceMute: () => set((s) => ({ voiceMuted: !s.voiceMuted })),
 
   // ── Weather along route ──
-  weather: null,
-  weatherLoading: false,
-  setWeather: (w) => set({ weather: w }),
-  setWeatherLoading: (v) => set({ weatherLoading: v }),
-
-  // ── Layers (traffic ON by default — primary route visualization) ──
-  layers: { traffic: true, heatmap: false, weather: true, incidents: true },
-  toggleLayer: (key) => set((s) => ({ layers: { ...s.layers, [key]: !s.layers[key] } })),
+weather: null,
+weatherLoading: false,
+setWeather: (w) => set({ weather: w }),
+setWeatherLoading: (v) => set({ weatherLoading: v }),
+// ── Safety score along route ──
+safety: null,
+safetyLoading: false,
+setSafety: (s) => set({ safety: s }),
+setSafetyLoading: (v) => set({ safetyLoading: v }),
+// ── Layers (traffic ON by default — primary route visualization) ──
+layers: { traffic: true, safety: false, weather: true, incidents: true },
+toggleLayer: (key) => set((s) => ({ layers: { ...s.layers, [key]: !s.layers[key] } })),
 
   // ── Nearby ──
   nearbyCategory: null,
